@@ -47,18 +47,31 @@ func (s *Memory) VerifyAudit(context.Context) error {
 	}
 	return nil
 }
-func (s *Memory) WithinTx(ctx context.Context, fn func(domain.Transaction) error) error {
+func (s *Memory) WithinTx(ctx context.Context, fn func(domain.Transaction) error) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	backup := s.snapshotLocked()
-	if err := fn(&tx{s: s}); err != nil {
-		s.restoreLocked(backup)
-		return err
+	committed := false
+	// A panic inside fn (or saveLocked) unwinds without restoring the
+	// in-memory state, leaving half-written mutations visible to callers that
+	// recover upstream. Restore the pre-transaction snapshot on the way out
+	// and re-panic with the original value so error and commit semantics stay
+	// unchanged.
+	defer func() {
+		if !committed {
+			s.restoreLocked(backup)
+		}
+		if r := recover(); r != nil {
+			panic(r)
+		}
+	}()
+	if e := fn(&tx{s: s}); e != nil {
+		return e
 	}
-	if err := s.saveLocked(); err != nil {
-		s.restoreLocked(backup)
-		return err
+	if e := s.saveLocked(); e != nil {
+		return e
 	}
+	committed = true
 	return nil
 }
 func (s *Memory) GetRun(_ context.Context, id string) (domain.TestRun, error) {
