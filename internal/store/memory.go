@@ -48,10 +48,20 @@ func (s *Memory) VerifyAudit(context.Context) error {
 	return nil
 }
 func (s *Memory) WithinTx(ctx context.Context, fn func(domain.Transaction) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	backup := s.snapshotLocked()
 	if err := fn(&tx{s: s}); err != nil {
+		s.restoreLocked(backup)
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		s.restoreLocked(backup)
 		return err
 	}
