@@ -515,12 +515,32 @@ func (s *Service) Detail(ctx context.Context, id string) (Archive, error) {
 	if e != nil {
 		return Archive{}, e
 	}
-	p, _ := s.repo.GetPackages(ctx, id)
-	a, _ := s.repo.GetAnomalies(ctx, id)
-	ev, _ := s.repo.GetEvidence(ctx, id)
-	rv, _ := s.repo.GetReviews(ctx, id)
-	d, _ := s.repo.GetDecision(ctx, id)
-	au, _ := s.repo.GetAudit(ctx, id)
+	p, e := s.repo.GetPackages(ctx, id)
+	if e != nil {
+		return Archive{}, e
+	}
+	a, e := s.repo.GetAnomalies(ctx, id)
+	if e != nil {
+		return Archive{}, e
+	}
+	ev, e := s.repo.GetEvidence(ctx, id)
+	if e != nil {
+		return Archive{}, e
+	}
+	rv, e := s.repo.GetReviews(ctx, id)
+	if e != nil {
+		return Archive{}, e
+	}
+	// 裁定尚未创建（例如草稿详情）属于正常情况，以空值参与组装；
+	// 其他存储错误必须向上返回，避免产出字段缺失的部分详情。
+	d, e := s.repo.GetDecision(ctx, id)
+	if e != nil && !domain.IsCode(e, domain.ErrNotFound) {
+		return Archive{}, e
+	}
+	au, e := s.repo.GetAudit(ctx, id)
+	if e != nil {
+		return Archive{}, e
+	}
 	return Archive{TestRun: r, DataPackages: p, Anomalies: a, Evidence: ev, Reviews: rv, Decision: d, Audit: au, ArchiveHash: d.ArchiveHash}, nil
 }
 func (s *Service) List(ctx context.Context) ([]domain.TestRun, error) { return s.repo.ListRuns(ctx) }
