@@ -249,8 +249,30 @@ func (s *Service) DecisionReadiness(ctx context.Context, id string) (map[string]
 	if e != nil {
 		return nil, e
 	}
-	rs, _ := s.repo.GetReviews(ctx, id)
-	as, _ := s.repo.GetAnomalies(ctx, id)
+	// 读取复核、异常、数据包与证据等全部依据；任一读取失败都原样返回存储错误，
+	// 避免把存储故障误报为缺少有效快照等业务阻断。只有在全部依据读取成功后才生成阻断原因。
+	rs, e := s.repo.GetReviews(ctx, id)
+	if e != nil {
+		return nil, e
+	}
+	as, e := s.repo.GetAnomalies(ctx, id)
+	if e != nil {
+		return nil, e
+	}
+	pk, e := s.repo.GetPackages(ctx, id)
+	if e != nil {
+		return nil, e
+	}
+	ev, e := s.repo.GetEvidence(ctx, id)
+	if e != nil {
+		return nil, e
+	}
+	current := []domain.DispositionEvidence{}
+	for _, x := range ev {
+		if x.ReplacedBy == "" {
+			current = append(current, x)
+		}
+	}
 	reasons := []string{}
 	if r.Status != domain.StatusReviewed {
 		reasons = append(reasons, "任务尚未完成独立复核")
@@ -258,18 +280,8 @@ func (s *Service) DecisionReadiness(ctx context.Context, id string) (map[string]
 	latest, ok := domain.LatestReview(rs)
 	if !ok || latest.Outcome != "APPROVED" || latest.SnapshotHash == "" {
 		reasons = append(reasons, "缺少锁定通过复核快照")
-	} else {
-		pk, _ := s.repo.GetPackages(ctx, id)
-		ev, _ := s.repo.GetEvidence(ctx, id)
-		current := []domain.DispositionEvidence{}
-		for _, x := range ev {
-			if x.ReplacedBy == "" {
-				current = append(current, x)
-			}
-		}
-		if domain.Digest([]any{pk, as, current, latest.Checklist, latest.DifferenceDigest}) != latest.SnapshotHash {
-			reasons = append(reasons, "复核快照与当前依据不一致")
-		}
+	} else if domain.Digest([]any{pk, as, current, latest.Checklist, latest.DifferenceDigest}) != latest.SnapshotHash {
+		reasons = append(reasons, "复核快照与当前依据不一致")
 	}
 	for _, a := range as {
 		if a.Status == "NEEDS_REVISION" {
