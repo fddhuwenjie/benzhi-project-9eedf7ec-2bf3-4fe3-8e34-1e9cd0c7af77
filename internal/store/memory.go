@@ -68,14 +68,14 @@ func (s *Memory) GetRun(_ context.Context, id string) (domain.TestRun, error) {
 	if !ok {
 		return r, domain.NotFound("试车任务不存在")
 	}
-	return r, nil
+	return cloneRun(r), nil
 }
 func (s *Memory) ListRuns(_ context.Context) ([]domain.TestRun, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	o := make([]domain.TestRun, 0, len(s.runs))
 	for _, r := range s.runs {
-		o = append(o, r)
+		o = append(o, cloneRun(r))
 	}
 	sort.Slice(o, func(i, j int) bool { return o[i].CreatedAt.After(o[j].CreatedAt) })
 	return o, nil
@@ -88,21 +88,21 @@ func (s *Memory) GetPackages(_ context.Context, id string) ([]domain.DataPackage
 func (s *Memory) GetAnomalies(_ context.Context, id string) ([]domain.Anomaly, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return append([]domain.Anomaly{}, s.anomalies[id]...), nil
+	return cloneAnomalies(s.anomalies[id]), nil
 }
 func (s *Memory) GetEvidence(_ context.Context, id string) ([]domain.DispositionEvidence, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := []domain.DispositionEvidence{}
 	for _, a := range s.anomalies[id] {
-		out = append(out, s.evidence[a.ID]...)
+		out = append(out, cloneEvidenceSlice(s.evidence[a.ID])...)
 	}
 	return out, nil
 }
 func (s *Memory) GetReviews(_ context.Context, id string) ([]domain.ReviewSnapshot, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return append([]domain.ReviewSnapshot{}, s.reviews[id]...), nil
+	return cloneReviews(s.reviews[id]), nil
 }
 func (s *Memory) GetDecision(_ context.Context, id string) (domain.ValidityDecision, error) {
 	s.mu.RLock()
@@ -111,7 +111,7 @@ func (s *Memory) GetDecision(_ context.Context, id string) (domain.ValidityDecis
 	if !ok {
 		return d, domain.NotFound("裁定不存在")
 	}
-	return d, nil
+	return cloneDecision(d), nil
 }
 func (s *Memory) GetAudit(_ context.Context, id string) ([]domain.AuditEvent, error) {
 	s.mu.RLock()
@@ -122,7 +122,7 @@ func (s *Memory) GetAudit(_ context.Context, id string) ([]domain.AuditEvent, er
 			o = append(o, e)
 		}
 	}
-	return o, nil
+	return append([]domain.AuditEvent{}, o...), nil
 }
 
 type tx struct{ s *Memory }
@@ -132,7 +132,7 @@ func (t *tx) GetRun(_ context.Context, id string) (domain.TestRun, error) {
 	if !ok {
 		return r, domain.NotFound("试车任务不存在")
 	}
-	return r, nil
+	return cloneRun(r), nil
 }
 func (t *tx) GetPackages(_ context.Context, id string) ([]domain.DataPackage, error) {
 	return clonePackages(t.s.packages[id]), nil
@@ -141,7 +141,7 @@ func (t *tx) InsertRun(_ context.Context, r domain.TestRun) error {
 	if _, ok := t.s.runs[r.ID]; ok {
 		return domain.Conflict("试车 ID 已存在")
 	}
-	t.s.runs[r.ID] = r
+	t.s.runs[r.ID] = cloneRun(r)
 	return nil
 }
 func (t *tx) UpdateRun(_ context.Context, r domain.TestRun, expected int64) error {
@@ -152,7 +152,7 @@ func (t *tx) UpdateRun(_ context.Context, r domain.TestRun, expected int64) erro
 	if cur.Revision != expected {
 		return domain.RevisionError(expected, cur.Revision)
 	}
-	t.s.runs[r.ID] = r
+	t.s.runs[r.ID] = cloneRun(r)
 	return nil
 }
 func (t *tx) InsertPackage(_ context.Context, p domain.DataPackage) error {
@@ -173,20 +173,74 @@ func clonePackages(in []domain.DataPackage) []domain.DataPackage {
 	}
 	return out
 }
+func cloneRun(r domain.TestRun) domain.TestRun {
+	r.ExpectedChannels = append([]string{}, r.ExpectedChannels...)
+	if r.PreviousDraft != nil {
+		d := *r.PreviousDraft
+		d.ExpectedChannels = append([]string{}, d.ExpectedChannels...)
+		r.PreviousDraft = &d
+	}
+	return r
+}
+func cloneAnomaly(a domain.Anomaly) domain.Anomaly {
+	a.AffectedChannels = append([]string{}, a.AffectedChannels...)
+	return a
+}
+func cloneAnomalies(in []domain.Anomaly) []domain.Anomaly {
+	out := append([]domain.Anomaly{}, in...)
+	for i := range out {
+		out[i] = cloneAnomaly(out[i])
+	}
+	return out
+}
+func cloneEvidence(e domain.DispositionEvidence) domain.DispositionEvidence {
+	e.EvidenceRefs = append([]string{}, e.EvidenceRefs...)
+	return e
+}
+func cloneEvidenceSlice(in []domain.DispositionEvidence) []domain.DispositionEvidence {
+	out := append([]domain.DispositionEvidence{}, in...)
+	for i := range out {
+		out[i] = cloneEvidence(out[i])
+	}
+	return out
+}
+func cloneReview(r domain.ReviewSnapshot) domain.ReviewSnapshot {
+	r.Checklist = append([]domain.ReviewChecklistItem{}, r.Checklist...)
+	r.Targets = append([]domain.ReviewReturnTarget{}, r.Targets...)
+	r.Basis = append([]domain.ReviewBasis{}, r.Basis...)
+	return r
+}
+func cloneReviews(in []domain.ReviewSnapshot) []domain.ReviewSnapshot {
+	out := append([]domain.ReviewSnapshot{}, in...)
+	for i := range out {
+		out[i] = cloneReview(out[i])
+	}
+	return out
+}
+func cloneDecision(d domain.ValidityDecision) domain.ValidityDecision {
+	d.ApplicableObjectives = append([]string{}, d.ApplicableObjectives...)
+	d.Limitations = append([]string{}, d.Limitations...)
+	return d
+}
+func cloneIdempotency(r domain.IdempotencyRecord) domain.IdempotencyRecord {
+	r.Response = append([]byte{}, r.Response...)
+	return r
+}
 func (t *tx) InsertAnomalies(_ context.Context, a []domain.Anomaly) error {
-	for _, x := range a {
+	cloned := cloneAnomalies(a)
+	for _, x := range cloned {
 		t.s.anomalies[x.TestRunID] = append(t.s.anomalies[x.TestRunID], x)
 	}
 	return nil
 }
 func (t *tx) GetAnomalies(_ context.Context, id string) ([]domain.Anomaly, error) {
-	return append([]domain.Anomaly{}, t.s.anomalies[id]...), nil
+	return cloneAnomalies(t.s.anomalies[id]), nil
 }
 func (t *tx) UpdateAnomaly(_ context.Context, a domain.Anomaly) error {
 	xs := t.s.anomalies[a.TestRunID]
 	for i := range xs {
 		if xs[i].ID == a.ID {
-			xs[i] = a
+			xs[i] = cloneAnomaly(a)
 			t.s.anomalies[a.TestRunID] = xs
 			return nil
 		}
@@ -194,14 +248,14 @@ func (t *tx) UpdateAnomaly(_ context.Context, a domain.Anomaly) error {
 	return domain.NotFound("异常不存在")
 }
 func (t *tx) InsertEvidence(_ context.Context, e domain.DispositionEvidence) error {
-	t.s.evidence[e.AnomalyID] = append(t.s.evidence[e.AnomalyID], e)
+	t.s.evidence[e.AnomalyID] = append(t.s.evidence[e.AnomalyID], cloneEvidence(e))
 	return nil
 }
 func (t *tx) UpdateEvidence(_ context.Context, e domain.DispositionEvidence) error {
 	xs := t.s.evidence[e.AnomalyID]
 	for i := range xs {
 		if xs[i].ID == e.ID {
-			xs[i] = e
+			xs[i] = cloneEvidence(e)
 			t.s.evidence[e.AnomalyID] = xs
 			return nil
 		}
@@ -209,20 +263,20 @@ func (t *tx) UpdateEvidence(_ context.Context, e domain.DispositionEvidence) err
 	return domain.NotFound("处置证据不存在")
 }
 func (t *tx) GetEvidence(_ context.Context, id string) ([]domain.DispositionEvidence, error) {
-	return append([]domain.DispositionEvidence{}, t.s.evidence[id]...), nil
+	return cloneEvidenceSlice(t.s.evidence[id]), nil
 }
 func (t *tx) GetReviews(_ context.Context, id string) ([]domain.ReviewSnapshot, error) {
-	return append([]domain.ReviewSnapshot{}, t.s.reviews[id]...), nil
+	return cloneReviews(t.s.reviews[id]), nil
 }
 func (t *tx) InsertReview(_ context.Context, r domain.ReviewSnapshot) error {
-	t.s.reviews[r.TestRunID] = append(t.s.reviews[r.TestRunID], r)
+	t.s.reviews[r.TestRunID] = append(t.s.reviews[r.TestRunID], cloneReview(r))
 	return nil
 }
 func (t *tx) InsertDecision(_ context.Context, d domain.ValidityDecision) error {
 	if _, ok := t.s.decisions[d.TestRunID]; ok {
 		return domain.Conflict("裁定已存在")
 	}
-	t.s.decisions[d.TestRunID] = d
+	t.s.decisions[d.TestRunID] = cloneDecision(d)
 	return nil
 }
 func (t *tx) UpdateDecisionArchive(_ context.Context, id, hash string) error {
@@ -240,7 +294,8 @@ func (t *tx) FindIdempotency(_ context.Context, id string) (*domain.IdempotencyR
 	if !ok {
 		return nil, nil
 	}
-	return &r, nil
+	c := cloneIdempotency(r)
+	return &c, nil
 }
 func (t *tx) SaveIdempotency(_ context.Context, r domain.IdempotencyRecord) error {
 	if old, ok := t.s.idem[r.RequestID]; ok {
@@ -249,7 +304,7 @@ func (t *tx) SaveIdempotency(_ context.Context, r domain.IdempotencyRecord) erro
 		}
 		return nil
 	}
-	t.s.idem[r.RequestID] = r
+	t.s.idem[r.RequestID] = cloneIdempotency(r)
 	return nil
 }
 func (t *tx) AppendAudit(_ context.Context, e domain.AuditEvent) error {
