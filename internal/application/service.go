@@ -12,9 +12,8 @@ import (
 )
 
 type Service struct {
-	repo          domain.Repository
-	now           func() time.Time
-	detailScratch Archive
+	repo domain.Repository
+	now  func() time.Time
 }
 type Archive = domain.Archive
 

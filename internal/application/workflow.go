@@ -515,15 +515,15 @@ func (s *Service) Detail(ctx context.Context, id string) (Archive, error) {
 	if e != nil {
 		return Archive{}, e
 	}
-	s.detailScratch.TestRun = r
-	s.detailScratch.DataPackages, _ = s.repo.GetPackages(ctx, id)
-	s.detailScratch.Anomalies, _ = s.repo.GetAnomalies(ctx, id)
-	s.detailScratch.Evidence, _ = s.repo.GetEvidence(ctx, id)
-	s.detailScratch.Reviews, _ = s.repo.GetReviews(ctx, id)
-	s.detailScratch.Decision, _ = s.repo.GetDecision(ctx, id)
-	s.detailScratch.Audit, _ = s.repo.GetAudit(ctx, id)
-	s.detailScratch.ArchiveHash = s.detailScratch.Decision.ArchiveHash
-	return s.detailScratch, nil
+	out := Archive{TestRun: r}
+	out.DataPackages, _ = s.repo.GetPackages(ctx, id)
+	out.Anomalies, _ = s.repo.GetAnomalies(ctx, id)
+	out.Evidence, _ = s.repo.GetEvidence(ctx, id)
+	out.Reviews, _ = s.repo.GetReviews(ctx, id)
+	out.Decision, _ = s.repo.GetDecision(ctx, id)
+	out.Audit, _ = s.repo.GetAudit(ctx, id)
+	out.ArchiveHash = out.Decision.ArchiveHash
+	return out, nil
 }
 func (s *Service) List(ctx context.Context) ([]domain.TestRun, error) { return s.repo.ListRuns(ctx) }
 func (s *Service) Timeline(ctx context.Context, id string) ([]domain.AuditEvent, error) {
