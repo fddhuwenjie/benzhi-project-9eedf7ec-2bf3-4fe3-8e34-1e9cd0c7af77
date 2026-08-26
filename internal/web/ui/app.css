@@ -1,0 +1,19 @@
+:root { font-family: system-ui, sans-serif; color: #17202a; background: #f4f6f8; }
+body { margin: 0; }
+header { background: #123047; color: white; padding: 18px 5vw; display: flex; justify-content: space-between; }
+header input { margin-left: 6px; padding: 6px; }
+main { max-width: 1100px; margin: auto; padding: 24px 5vw; }
+.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+button, .button { border: 0; background: #187a8c; color: white; padding: 10px 16px; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+button:disabled { opacity: .45; cursor: default; }
+.run, .archive { display: block; width: 100%; text-align: left; color: #17202a; background: white; border: 1px solid #d5dde3; padding: 14px; margin: 8px 0; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid #c9d3da; margin-bottom: 18px; }
+.tabs button { background: transparent; color: #304856; border-radius: 0; }
+.tabs button.active { color: #075b68; border-bottom: 3px solid #187a8c; }
+.panel { border-top: 1px solid #d5dde3; padding: 14px 0; margin-top: 12px; }
+.panel textarea { box-sizing: border-box; width: 100%; min-height: 150px; font: 13px ui-monospace, monospace; }
+.panel-actions { display: flex; gap: 8px; margin: 10px 0; }
+.stats { display: grid; grid-template-columns: repeat(4,minmax(120px,1fr)); gap: 8px; }
+.metric { background: #fff; border-left: 3px solid #187a8c; padding: 12px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #fff; padding: 12px; border: 1px solid #d5dde3; }
+@media (max-width: 700px) { .stats { grid-template-columns: repeat(2,1fr); } header { align-items: flex-start; gap: 10px; } }
