@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>航空发动机试车数据有效性裁定台</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header><h1>航空发动机试车数据有效性裁定台</h1><label>当前身份 <input id="actor" value="data-engineer"></label><span id="health">连接检查中</span></header>
+  <main>
+    <nav class="tabs"><button id="runsTab" class="active">试车队列</button><button id="archivesTab">封存档案</button></nav>
+    <div id="runsView">
+      <section class="toolbar"><select id="status"><option value="">全部状态</option><option>DRAFT</option><option>BASELINED</option><option>DATA_CHECKED</option><option>TRIAGED</option><option>REVIEW_PENDING</option><option>REVIEWED</option><option>DECIDED</option><option>ARCHIVED</option></select><input id="engine" placeholder="发动机标识"><label><input id="blocking" type="checkbox">仅阻断项</label><button id="refresh">筛选/刷新</button><button id="clear">清除筛选</button></section>
+      <section><h2>试车队列</h2><div id="runs" class="list"></div></section>
+      <section id="detail" hidden><h2>流程详情</h2><div id="summary"></div><div id="actions"></div><div id="analysisViews"></div><h3>门禁、异常、证据与审计</h3><pre id="output"></pre></section>
+    </div>
+    <div id="archivesView" hidden>
+      <section class="toolbar"><select id="archiveVerdict"><option value="">全部裁定</option><option>VALID</option><option>INVALID</option></select><input id="archiveRig" placeholder="试车台"><input id="archiveEngine" placeholder="发动机标识"><input id="archiveObjective" placeholder="适用试验目标"><input id="archiveSigner" placeholder="签发人"><label>签发起始 <input id="archiveFrom" type="datetime-local"></label><label>签发结束 <input id="archiveTo" type="datetime-local"></label><label><input id="archiveLimited" type="checkbox">有限制条件</label><button id="archiveSearch">检索</button></section>
+      <section><h2>裁定统计</h2><div id="archiveStats" class="stats"></div><h2>档案台账</h2><div id="archives" class="list"></div><button id="archiveMore" hidden>下一页</button></section>
+    </div>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
